@@ -4,16 +4,21 @@
 from __future__ import print_function
 import rospy
 import actionlib
-from roboy_communication_control.msg import PerformMovementAction
+from roboy_communication_control.msg import PerformMovementAction, PerformMovementGoal
+import pdb
 
 def makeFistbump():
     client = actionlib.SimpleActionClient(
-        'shoulder_left_movements_server',
+        'shoulder_left_movement_server',
         PerformMovementAction)
+    # pdb.set_trace()
     print("Waiting for Server")
     client.wait_for_server()
-    bumpAction = PerformMovementAction()
-    bumpAction.action = "shoulder_left_gogogo"
+    bumpAction = PerformMovementGoal(action="shoulder_left_gogogo")
+
+    # bumpAction.action_goal = "shoulder_left_gogogo"
+    # pdb.set_trace()
+    # bumpAction["action"] = "shoulder_left_gogogo"
     client.send_goal(bumpAction)
     client.wait_for_result()
     return client.get_result()
