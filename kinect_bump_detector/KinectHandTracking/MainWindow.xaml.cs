@@ -26,8 +26,11 @@ namespace KinectHandTracking
         private static readonly HttpClient client = new HttpClient();
         private string rightHandState = "-";
         private string leftHandState = "-";
-        bool signalSent = false; //sent msg to server
+        bool sendSignal = true; //whether to send msg to server. Initially true and becomes true again when the timer runs out after a signal has been sent.
         bool handClosedDetected = false;
+
+        Stopwatch sw = new Stopwatch();
+        TimeSpan maxTime = TimeSpan.FromMinutes(0.1);
 
         KinectSensor _sensor;
         MultiSourceFrameReader _reader;
@@ -87,9 +90,19 @@ namespace KinectHandTracking
             var responseString = await response.Content.ReadAsStringAsync();
         }
 
-        void HandshakeInitiate(object sender, MultiSourceFrameArrivedEventArgs e)
+        private bool checkWaitOver()
         {
-            if (!signalSent)
+            bool timeUp = false;
+            if(sw.Elapsed >= maxTime)
+            {
+                timeUp = true;
+            }
+            return timeUp;
+        }
+
+        void HandshakeInitiate(object sender, MultiSourceFrameArrivedEventArgs e)
+        {                       
+            if (sendSignal)
             {
                 if(rightHandState == "Closed")
                 {                    
@@ -102,9 +115,17 @@ namespace KinectHandTracking
                     msgToPythonServer();
                     //System.Threading.Thread.Sleep(10000);
                     //Debug.WriteLine("Awake!!!");
-                    signalSent = true;
+                    sendSignal = false;
+                    sw.Start();
                 }
-            }            
+            }
+            bool timeUp = checkWaitOver();
+            if (timeUp)
+            {
+                Debug.WriteLine("Time's up!!");
+                sendSignal = true;
+                sw.Reset();
+            }                
         }
 
 
