@@ -23,13 +23,14 @@ namespace KinectHandTracking
     public partial class MainWindow : Window
     {
         #region Members
-        private static readonly HttpClient client = new HttpClient();
-        private string rightHandState = "-";
-        private string leftHandState = "-";
-        bool sendSignal = true; //whether to send msg to server. Initially true and becomes true again when the timer runs out after a signal has been sent.
-        bool handClosedDetected = false;
+        private static readonly HttpClient client = new HttpClient(); //Used to conatct python server. The python server initiates contact to Roboy when it receives a signal from here.
+        private string rightHandState = "-"; //Right hand state is saved here.
+        private string leftHandState = "-"; //Left hand state is saved here.
+        bool sendSignal = true; //Whether to send msg to the server. Initially true. Becomes false immediately after a signal is sent. Becomes true again when the timer runs out.
+        bool handClosedDetected = false; //Used to track state transition. Closed -> Open, Closed -> Lasso.
 
-        Stopwatch sw = new Stopwatch();
+        //These two variables are used to track passage of time in order to allow for multiple signals to be sent to the server while making sure that Roboy is done performing whatever action he's supposed to perform.
+        Stopwatch sw = new Stopwatch(); 
         TimeSpan maxTime = TimeSpan.FromMinutes(0.1);
 
         KinectSensor _sensor;
@@ -59,7 +60,7 @@ namespace KinectHandTracking
 
                 _reader = _sensor.OpenMultiSourceFrameReader(FrameSourceTypes.Color | FrameSourceTypes.Depth | FrameSourceTypes.Infrared | FrameSourceTypes.Body);
                 _reader.MultiSourceFrameArrived += Reader_MultiSourceFrameArrived;
-                _reader.MultiSourceFrameArrived += HandshakeInitiate;
+                _reader.MultiSourceFrameArrived += HandshakeInitiate; //Added by team.
             }
         }
 
@@ -76,6 +77,7 @@ namespace KinectHandTracking
             }
         }
 
+        //Send signal to python server that the Kinect has identified a specific hand gesture.
         private async void msgToPythonServer()
         {
             var values = new Dictionary<string, string>
@@ -85,11 +87,12 @@ namespace KinectHandTracking
 
             var content = new FormUrlEncodedContent(values);
 
-            var response = await client.PostAsync("http://10.183.58.154:5000/hi", content);
+            //var response = await client.PostAsync("http://10.183.58.154:5000/hi", content);
 
-            var responseString = await response.Content.ReadAsStringAsync();
+            //var responseString = await response.Content.ReadAsStringAsync();
         }
 
+        //Returns true if the timer has run out.
         private bool checkWaitOver()
         {
             bool timeUp = false;
@@ -100,6 +103,10 @@ namespace KinectHandTracking
             return timeUp;
         }
 
+        //Detect a specific hand gesture (here Close -> Open, Close -> Lasso).
+        //Once the gesture is detected, a signal is sent to a python server which initiates Roboy's reaction.
+        //A timer is also started when the signal is sent. Once the timer runs out, a new signal can be sent if a gesture is detected again.
+        //This method is called every frame if the kinect camera.
         void HandshakeInitiate(object sender, MultiSourceFrameArrivedEventArgs e)
         {                       
             if (sendSignal)
@@ -113,8 +120,6 @@ namespace KinectHandTracking
                     //call server
                     Debug.WriteLine("Go Roboy");
                     msgToPythonServer();
-                    //System.Threading.Thread.Sleep(10000);
-                    //Debug.WriteLine("Awake!!!");
                     sendSignal = false;
                     sw.Start();
                 }
